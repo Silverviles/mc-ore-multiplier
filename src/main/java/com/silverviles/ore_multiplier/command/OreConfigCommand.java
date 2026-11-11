@@ -15,7 +15,6 @@ import com.silverviles.ore_multiplier.config.OreDiscovery;
 import com.silverviles.ore_multiplier.config.OreGroup;
 import com.silverviles.ore_multiplier.config.OreLimits;
 import com.silverviles.ore_multiplier.config.VariantConfig;
-import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -25,8 +24,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.permissions.PermissionLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +36,6 @@ import java.util.concurrent.CompletableFuture;
 
 public final class OreConfigCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger("ore_multiplier");
-    private static final Identifier PERMISSION =
-            Identifier.fromNamespaceAndPath("ore_multiplier", "command/config");
     private static final List<String> DISTRIBUTIONS = List.of("uniform", "triangle", "trapezoid");
 
     private OreConfigCommand() {
@@ -49,7 +44,7 @@ public final class OreConfigCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("oreconfig")
-                        .requires(PermissionPredicates.require(PERMISSION, PermissionLevel.GAMEMASTERS))
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                         .executes(context -> execute(context, OreConfigCommand::summary))
                         .then(Commands.literal("list")
                                 .executes(context -> execute(context, command -> list(command, null)))

@@ -1,5 +1,7 @@
 package com.silverviles.ore_multiplier.config;
 
+import com.silverviles.ore_multiplier.mixin.CountPlacementAccessor;
+import com.silverviles.ore_multiplier.mixin.HeightRangePlacementAccessor;
 import com.silverviles.ore_multiplier.mixin.TrapezoidHeightAccessor;
 import com.silverviles.ore_multiplier.mixin.UniformHeightAccessor;
 import net.minecraft.core.Holder;
@@ -14,8 +16,8 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.VerticalAnchor;
-import net.minecraft.world.level.levelgen.feature.AbstractOreFeature;
-import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.heightproviders.HeightProvider;
 import net.minecraft.world.level.levelgen.heightproviders.TrapezoidHeight;
 import net.minecraft.world.level.levelgen.heightproviders.UniformHeight;
@@ -96,8 +98,8 @@ public final class OreDiscovery {
         Map<String, DiscoveredOre> result = new LinkedHashMap<>();
         for (Map.Entry<ResourceKey<PlacedFeature>, PlacedFeature> entry : placedRegistry.entrySet()) {
             PlacedFeature placed = entry.getValue();
-            Feature feature = placed.feature().value();
-            if (!(feature instanceof AbstractOreFeature ore)) {
+            ConfiguredFeature<?, ?> configured = placed.feature().value();
+            if (!(configured.config() instanceof OreConfiguration ore)) {
                 continue;
             }
 
@@ -110,10 +112,12 @@ public final class OreDiscovery {
             HeightProvider height = null;
             for (PlacementModifier modifier : placed.placement()) {
                 if (count < 0 && modifier instanceof CountPlacement countPlacement) {
-                    count = countPlacement.count().maxInclusive();
+                    CountPlacementAccessor accessor = (CountPlacementAccessor) (Object) countPlacement;
+                    count = accessor.getCount().maxInclusive();
                 }
                 if (height == null && modifier instanceof HeightRangePlacement heightPlacement) {
-                    height = heightPlacement.height();
+                    HeightRangePlacementAccessor accessor = (HeightRangePlacementAccessor) (Object) heightPlacement;
+                    height = accessor.getHeight();
                 }
             }
 
@@ -134,9 +138,9 @@ public final class OreDiscovery {
                 distribution = plateau > 0 ? "trapezoid" : "triangle";
             }
 
-            minY = Math.max(dimension.minY(), Math.min(dimension.maxY(), minY));
-            maxY = Math.max(dimension.minY(), Math.min(dimension.maxY(), maxY));
-            plateau = Math.max(0, Math.min(maxY - minY, plateau));
+            minY = Math.clamp(minY, dimension.minY(), dimension.maxY());
+            maxY = Math.clamp(maxY, dimension.minY(), dimension.maxY());
+            plateau = Math.clamp(plateau, 0, maxY - minY);
 
             result.put(variantId, new DiscoveredOre(
                     groupKey,
@@ -144,7 +148,7 @@ public final class OreDiscovery {
                     variantSuffix,
                     dimension,
                     count,
-                    ore.size(),
+                    ore.size,
                     minY,
                     maxY,
                     distribution,
@@ -221,17 +225,14 @@ public final class OreDiscovery {
     }
 
     private static int resolveAnchor(VerticalAnchor anchor, DimensionInfo dimension) {
-        if (anchor instanceof VerticalAnchor.Absolute absolute) {
-            return absolute.y();
+        if (anchor instanceof VerticalAnchor.Absolute(int y)) {
+            return y;
         }
-        if (anchor instanceof VerticalAnchor.AboveBottom aboveBottom) {
-            return dimension.minY() + aboveBottom.offset();
+        if (anchor instanceof VerticalAnchor.AboveBottom(int offset)) {
+            return dimension.minY() + offset;
         }
-        if (anchor instanceof VerticalAnchor.BelowTop belowTop) {
-            return dimension.minY() + dimension.height() - 1 - belowTop.offset();
-        }
-        if (anchor instanceof VerticalAnchor.RelativeToSeaLevel relative) {
-            return dimension.seaLevel() + relative.offset();
+        if (anchor instanceof VerticalAnchor.BelowTop(int offset)) {
+            return dimension.minY() + dimension.height() - 1 - offset;
         }
         return dimension.minY();
     }

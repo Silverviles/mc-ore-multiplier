@@ -38,13 +38,10 @@ It starts with the essentials and then walks through common tasks with copy-past
 
 `/oreconfig` is an operator command:
 
-- It checks the Fabric permission node **`ore_multiplier:command/config`**.
-- If no permission provider answers, it falls back to vanilla permission level **2**
-  (`GAMEMASTERS`), i.e. normal OPs.
+- It requires vanilla permission level **2** (`GAMEMASTERS`), i.e. normal OPs.
 - The server console and RCON always have permission.
 
-On a vanilla-style server, make yourself OP (`op <player>` or set `op-permission-level=2` or higher).
-With a Fabric permissions mod, grant `ore_multiplier:command/config` instead.
+Make yourself OP (`op <player>` or set `op-permission-level=2` or higher).
 
 In chat, commands start with `/`. When typing into the server console or an RCON client, omit the
 leading slash (`oreconfig list`).
@@ -523,7 +520,7 @@ example `size 33 (80)`.
 | `Detected setBlock in a far chunk` | A vein exceeded Minecraft's one-chunk write radius. The mod caps effective size at 80; run `/oreconfig reload` and check that no external/datapack feature uses an oversized size. |
 | A command says the value was clamped | The input exceeded a hard limit. Size is capped at 80, count at 100000, and multipliers at 100. |
 | `Ore configuration is not loaded yet` | The server is still starting. Wait a moment and retry. |
-| Command not permitted | You need OP level 2 (GAMEMASTERS) or the `ore_multiplier:command/config` permission node. |
+| Command not permitted | You need OP level 2 (GAMEMASTERS). |
 | A datapack `/reload` removed the overrides | Run `/oreconfig reload` to rebind overrides to the rebuilt placed feature registry. |
 | Config edit did nothing | Run `/oreconfig reload`, and check the server log for JSON errors. |
 | Config was replaced by defaults | The previous file was invalid JSON and was moved to `ore_multiplier.json.broken`. |

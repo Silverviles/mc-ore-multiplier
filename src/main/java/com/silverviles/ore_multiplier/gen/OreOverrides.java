@@ -12,10 +12,9 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.levelgen.VerticalAnchor;
-import net.minecraft.world.level.levelgen.feature.AbstractOreFeature;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.OreFeature;
-import net.minecraft.world.level.levelgen.feature.ScatteredOreFeature;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.heightproviders.HeightProvider;
 import net.minecraft.world.level.levelgen.heightproviders.TrapezoidHeight;
 import net.minecraft.world.level.levelgen.heightproviders.UniformHeight;
@@ -123,19 +122,16 @@ public final class OreOverrides {
             OreConfig config,
             DimensionInfo dimension
     ) {
-        Feature feature = original.feature().value();
-        if (!(feature instanceof AbstractOreFeature ore)) {
+        ConfiguredFeature<?, ?> configured = original.feature().value();
+        if (!(configured.config() instanceof OreConfiguration ore)) {
             return null;
         }
 
         int effectiveSize = OreLimits.effectiveSize(variant.size, config.sizeMultiplier);
 
-        Holder<Feature> replacementHolder = original.feature();
-        if (effectiveSize != ore.size()) {
-            AbstractOreFeature rebuilt = rebuildOre(ore, effectiveSize);
-            if (rebuilt != null) {
-                replacementHolder = Holder.direct(rebuilt);
-            }
+        Holder<ConfiguredFeature<?, ?>> replacementHolder = original.feature();
+        if (effectiveSize != ore.size) {
+            replacementHolder = Holder.direct(rebuildConfiguredFeature(configured, ore, effectiveSize));
         }
 
         int effectiveCount;
@@ -213,15 +209,25 @@ public final class OreOverrides {
         };
     }
 
-    private static AbstractOreFeature rebuildOre(AbstractOreFeature ore, int size) {
-        if (ore instanceof ScatteredOreFeature) {
-            return new ScatteredOreFeature(ore.targetStates(), size, ore.discardChanceOnAirExposure());
-        }
-        if (ore instanceof OreFeature) {
-            return new OreFeature(ore.targetStates(), size, ore.discardChanceOnAirExposure());
-        }
-        // Unknown third-party subclass; leave the feature instance untouched.
-        return null;
+    /**
+     * Rebuilds the configured feature with a new vein size. In 26.1 the size
+     * lives in {@link OreConfiguration}, so the feature instance itself is
+     * reused. This also keeps third-party features that use an
+     * {@link OreConfiguration} rebuildable.
+     */
+    @SuppressWarnings("unchecked")
+    private static ConfiguredFeature<?, ?> rebuildConfiguredFeature(
+            ConfiguredFeature<?, ?> configured,
+            OreConfiguration ore,
+            int size
+    ) {
+        OreConfiguration rebuiltConfig = new OreConfiguration(
+                ore.targetStates,
+                size,
+                ore.discardChanceOnAirExposure
+        );
+        Feature<OreConfiguration> feature = (Feature<OreConfiguration>) configured.feature();
+        return new ConfiguredFeature<>(feature, rebuiltConfig);
     }
 
     private static int clamp(int value, int minimum, int maximum) {
