@@ -1,6 +1,6 @@
 # Ore Multiplier
 
-A server-side [Fabric](https://fabricmc.net/) mod for **Minecraft 26.1** that gives server operators
+A server-side [Fabric](https://fabricmc.net/) mod for **Minecraft 26.1.1** that gives server operators
 full control over ore generation through commands and a single global JSON config file.
 
 Every discovered ore placed feature (vein type) can be individually enabled, disabled, resized,
@@ -47,13 +47,13 @@ modded and datapack ores are discovered automatically — no hardcoded ore list.
 
 | Component | Requirement |
 |---|---|
-| Minecraft | **26.1** (Java Edition) |
+| Minecraft | **26.1.1** (Java Edition) |
 | Mod loader | [Fabric Loader](https://fabricmc.net/use/installer/) **0.20.1** or newer |
-| Fabric API | Required — built against **0.145.1+26.1**, use any Fabric API build for 26.1 |
-| Java | **Java 25** (required by Minecraft 26.1) |
+| Fabric API | Required — built against **0.145.4+26.1.1**, use any Fabric API build for 26.1.1 |
+| Java | **Java 25** (required by Minecraft 26.1.1) |
 | Side | Server-side logic; works on dedicated servers, singleplayer (integrated server) and LAN |
 
-The mod declares `minecraft: 26.1` exactly and requires `fabric-api` and `fabricloader >= 0.20.1`
+The mod declares `minecraft: 26.1.1` exactly and requires `fabric-api` and `fabricloader >= 0.20.1`
 in its metadata. It cannot be installed on 1.21.x or other Minecraft versions.
 
 No client mod is needed on a multiplayer server. For singleplayer, install it in the client's
@@ -61,8 +61,8 @@ No client mod is needed on a multiplayer server. For singleplayer, install it in
 
 ## Installation
 
-1. Install **Fabric Loader 0.20.1+** for Minecraft **26.1**.
-2. Put **Fabric API** for 26.1 in the `mods/` folder.
+1. Install **Fabric Loader 0.20.1+** for Minecraft **26.1.1**.
+2. Put **Fabric API** for 26.1.1 in the `mods/` folder.
 3. Put `ore_multiplier-1.0-SNAPSHOT.jar` in the same `mods/` folder.
 4. Start the server (or the game for singleplayer).
 5. The mod creates `config/ore_multiplier.json` on first start. That file is global and independent
