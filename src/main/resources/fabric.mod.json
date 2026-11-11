@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "ore_multiplier",
+  "version": "${version}",
+  "name": "ore_multiplier",
+  "description": "Configure ore generation rules in the world",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/ore_multiplier/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-datagen": [
+      "com.silverviles.ore_multiplier.client.Ore_multiplierDataGenerator"
+    ],
+    "client": [
+      "com.silverviles.ore_multiplier.client.Ore_multiplierClient"
+    ],
+    "main": [
+      "com.silverviles.ore_multiplier.Ore_multiplier"
+    ]
+  },
+  "mixins": [
+    "ore_multiplier.mixins.json",
+    {
+      "config": "ore_multiplier.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

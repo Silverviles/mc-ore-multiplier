@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+build/
+out/
+classes/
+
+# Loom
+.loom-cache/
+loom-cache/
+remappedSrc/
+
+# Fabric dev server (worlds, configs, logs, test data)
+run/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.settings/
+.classpath
+.project
+*.launch
+bin/
+
+# VS Code
+.vscode/
+
+# Logs and crash reports
+logs/
+*.log
+crash-reports/
+hs_err_pid*
+*.hprof
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.silverviles.ore_multiplier.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "BiomeFilterMixin",
+    "FeaturePlacerMixin",
+    "TrapezoidHeightAccessor",
+    "UniformHeightAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
