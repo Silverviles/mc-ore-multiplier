@@ -4,6 +4,7 @@ import com.silverviles.ore_multiplier.config.DiscoveredOre;
 import com.silverviles.ore_multiplier.config.DimensionInfo;
 import com.silverviles.ore_multiplier.config.OreConfig;
 import com.silverviles.ore_multiplier.config.OreGroup;
+import com.silverviles.ore_multiplier.config.OreLimits;
 import com.silverviles.ore_multiplier.config.VariantConfig;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -127,11 +128,7 @@ public final class OreOverrides {
             return null;
         }
 
-        int effectiveSize = clamp(
-                (int) Math.round(variant.size * config.sizeMultiplier),
-                1,
-                256
-        );
+        int effectiveSize = OreLimits.effectiveSize(variant.size, config.sizeMultiplier);
 
         Holder<Feature> replacementHolder = original.feature();
         if (effectiveSize != ore.size()) {
@@ -147,11 +144,7 @@ public final class OreOverrides {
         } else if (variant.count < 0) {
             effectiveCount = -1;
         } else {
-            effectiveCount = clamp(
-                    (int) Math.round(variant.count * config.countMultiplier),
-                    0,
-                    100_000
-            );
+            effectiveCount = OreLimits.effectiveCount(variant.count, config.countMultiplier);
         }
 
         int minY = variant.minY;

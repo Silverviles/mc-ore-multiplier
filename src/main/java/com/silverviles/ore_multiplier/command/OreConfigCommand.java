@@ -13,6 +13,7 @@ import com.silverviles.ore_multiplier.config.DiscoveredOre;
 import com.silverviles.ore_multiplier.config.OreConfig;
 import com.silverviles.ore_multiplier.config.OreDiscovery;
 import com.silverviles.ore_multiplier.config.OreGroup;
+import com.silverviles.ore_multiplier.config.OreLimits;
 import com.silverviles.ore_multiplier.config.VariantConfig;
 import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
 import net.minecraft.ChatFormatting;
@@ -63,10 +64,10 @@ public final class OreConfigCommand {
                                 .then(oreArgument()
                                         .then(variantArgument()
                                                 .then(Commands.literal("count")
-                                                        .then(Commands.argument("value", IntegerArgumentType.integer(-1, 100_000))
+                                                        .then(Commands.argument("value", IntegerArgumentType.integer())
                                                                 .executes(context -> execute(context, OreConfigCommand::setCount))))
                                                 .then(Commands.literal("size")
-                                                        .then(Commands.argument("value", IntegerArgumentType.integer(1, 256))
+                                                        .then(Commands.argument("value", IntegerArgumentType.integer())
                                                                 .executes(context -> execute(context, OreConfigCommand::setSize))))
                                                 .then(Commands.literal("min-y")
                                                         .then(Commands.argument("value", IntegerArgumentType.integer(-2048, 2048))
@@ -93,10 +94,10 @@ public final class OreConfigCommand {
                                                         setEnabled(command, false, StringArgumentType.getString(command, "variant")))))))
                         .then(Commands.literal("multiplier")
                                 .then(Commands.literal("count")
-                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(0.0D, 100.0D))
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(OreLimits.MIN_MULTIPLIER))
                                                 .executes(context -> execute(context, OreConfigCommand::setCountMultiplier))))
                                 .then(Commands.literal("size")
-                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(0.0D, 100.0D))
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(OreLimits.MIN_MULTIPLIER))
                                                 .executes(context -> execute(context, OreConfigCommand::setSizeMultiplier)))))
                         .then(Commands.literal("reset")
                                 .then(Commands.argument("ore", StringArgumentType.word())
@@ -214,15 +215,21 @@ public final class OreConfigCommand {
 
             int effectiveCount = !variant.enabled
                     ? 0
-                    : (variant.count >= 0 ? (int) Math.round(variant.count * config.countMultiplier) : -1);
+                    : (variant.count >= 0 ? OreLimits.effectiveCount(variant.count, config.countMultiplier) : -1);
             String countText = variant.count < 0 ? "none" : Integer.toString(variant.count);
             if (variant.count >= 0 && effectiveCount != variant.count) {
                 countText += " (" + effectiveCount + ")";
             }
 
+            int effectiveSize = OreLimits.effectiveSize(variant.size, config.sizeMultiplier);
+            String sizeText = Integer.toString(variant.size);
+            if (effectiveSize != variant.size) {
+                sizeText += " (" + effectiveSize + ")";
+            }
+
             MutableComponent line = Component.literal("  " + pad(suffix, 8)).withStyle(ChatFormatting.YELLOW)
                     .append(Component.literal("count " + pad(countText, 12)).withStyle(ChatFormatting.WHITE))
-                    .append(Component.literal("size " + pad(Integer.toString(variant.size), 5)).withStyle(ChatFormatting.WHITE))
+                    .append(Component.literal("size " + pad(sizeText, 5)).withStyle(ChatFormatting.WHITE))
                     .append(Component.literal("Y " + variant.minY + ".." + variant.maxY + "  ").withStyle(ChatFormatting.WHITE))
                     .append(Component.literal(variant.distribution).withStyle(ChatFormatting.AQUA))
                     .append(Component.literal("  " + (variant.enabled ? "on" : "off"))
@@ -253,13 +260,23 @@ public final class OreConfigCommand {
 
         String oreKey = resolveOreKey(manager.config(), StringArgumentType.getString(context, "ore"));
         List<String> variants = resolveVariants(manager, oreKey, StringArgumentType.getString(context, "variant"));
-        int value = IntegerArgumentType.getInteger(context, "value");
+        int requested = IntegerArgumentType.getInteger(context, "value");
+        int value = OreLimits.clampCount(requested);
 
         for (String variant : variants) {
             manager.config().ores.get(oreKey).variants.get(variant).count = value;
         }
-        return apply(source, manager, "Set count to " + value + " for " + variants.size()
-                + " variant(s) of " + oreKey + ".");
+        String message = "Set count to " + value + " for " + variants.size()
+                + " variant(s) of " + oreKey + ".";
+        if (requested != value) {
+            message += " Requested " + requested + " was clamped to the allowed range "
+                    + OreLimits.MIN_COUNT + ".." + OreLimits.MAX_COUNT + ".";
+        }
+        if (value > 0 && value * manager.config().countMultiplier > OreLimits.MAX_COUNT) {
+            message += " With the current count multiplier, effective count is capped at "
+                    + OreLimits.MAX_COUNT + ".";
+        }
+        return apply(source, manager, message);
     }
 
     private static int setSize(CommandContext<CommandSourceStack> context) throws Exception {
@@ -271,13 +288,24 @@ public final class OreConfigCommand {
 
         String oreKey = resolveOreKey(manager.config(), StringArgumentType.getString(context, "ore"));
         List<String> variants = resolveVariants(manager, oreKey, StringArgumentType.getString(context, "variant"));
-        int value = IntegerArgumentType.getInteger(context, "value");
+        int requested = IntegerArgumentType.getInteger(context, "value");
+        int value = OreLimits.clampSize(requested);
 
         for (String variant : variants) {
             manager.config().ores.get(oreKey).variants.get(variant).size = value;
         }
-        return apply(source, manager, "Set vein size to " + value + " for " + variants.size()
-                + " variant(s) of " + oreKey + ".");
+        String message = "Set vein size to " + value + " for " + variants.size()
+                + " variant(s) of " + oreKey + ".";
+        if (requested != value) {
+            message += " Requested " + requested + " was clamped to the allowed range "
+                    + OreLimits.MIN_SIZE + ".." + OreLimits.MAX_SIZE
+                    + " (the hard limit that keeps veins inside Minecraft's chunk write radius).";
+        }
+        if (value > 0 && value * manager.config().sizeMultiplier > OreLimits.MAX_SIZE) {
+            message += " With the current size multiplier, effective size is capped at "
+                    + OreLimits.MAX_SIZE + ".";
+        }
+        return apply(source, manager, message);
     }
 
     private static int setMinY(CommandContext<CommandSourceStack> context) throws Exception {
@@ -359,9 +387,18 @@ public final class OreConfigCommand {
             return 0;
         }
 
-        double value = DoubleArgumentType.getDouble(context, "value");
+        double requested = DoubleArgumentType.getDouble(context, "value");
+        double value = OreLimits.clampMultiplier(requested);
         manager.config().countMultiplier = value;
-        return apply(source, manager, "Global count multiplier set to x" + format(value) + ".");
+        String message = "Global count multiplier set to x" + format(value) + ".";
+        if (requested != value) {
+            message += " Requested x" + format(requested) + " exceeds the maximum of x"
+                    + format(OreLimits.MAX_MULTIPLIER) + " and was clamped.";
+        }
+        if (hasCountCappedByMultiplier(manager, value)) {
+            message += " Effective counts are capped at " + OreLimits.MAX_COUNT + ".";
+        }
+        return apply(source, manager, message);
     }
 
     private static int setSizeMultiplier(CommandContext<CommandSourceStack> context) throws Exception {
@@ -371,9 +408,40 @@ public final class OreConfigCommand {
             return 0;
         }
 
-        double value = DoubleArgumentType.getDouble(context, "value");
+        double requested = DoubleArgumentType.getDouble(context, "value");
+        double value = OreLimits.clampMultiplier(requested);
         manager.config().sizeMultiplier = value;
-        return apply(source, manager, "Global size multiplier set to x" + format(value) + ".");
+        String message = "Global size multiplier set to x" + format(value) + ".";
+        if (requested != value) {
+            message += " Requested x" + format(requested) + " exceeds the maximum of x"
+                    + format(OreLimits.MAX_MULTIPLIER) + " and was clamped.";
+        }
+        if (hasSizeCappedByMultiplier(manager, value)) {
+            message += " Effective vein sizes are capped at " + OreLimits.MAX_SIZE + ".";
+        }
+        return apply(source, manager, message);
+    }
+
+    private static boolean hasSizeCappedByMultiplier(ConfigManager manager, double sizeMultiplier) {
+        for (OreGroup group : manager.config().ores.values()) {
+            for (VariantConfig variant : group.variants.values()) {
+                if (variant.size * sizeMultiplier > OreLimits.MAX_SIZE) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasCountCappedByMultiplier(ConfigManager manager, double countMultiplier) {
+        for (OreGroup group : manager.config().ores.values()) {
+            for (VariantConfig variant : group.variants.values()) {
+                if (variant.count >= 0 && variant.count * countMultiplier > OreLimits.MAX_COUNT) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static int reset(CommandContext<CommandSourceStack> context, String oreArgument, String variantArgument) throws Exception {

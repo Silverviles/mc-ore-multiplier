@@ -37,6 +37,8 @@ modded and datapack ores are discovered automatically — no hardcoded ore list.
   - minimum and maximum Y
   - height distribution (`uniform`, `triangle`, `trapezoid`)
 - **Global multipliers** for count and size applied on top of every per-ore value.
+- **Safe vein sizes** — effective size is hard-capped at 80 so oversized veins cannot write outside
+  Minecraft's chunk write radius.
 - **Commands only** — no GUI and no client-side screens required.
 - **Hot reload** from disk with `/oreconfig reload`; command changes are saved and applied instantly.
 - Changes affect **newly generated chunks only** — existing terrain is never modified or retro-generated.
@@ -159,8 +161,8 @@ Example with the relevant fields:
 |---|---|---|
 | `configVersion` | int | Internal schema version. Leave at `1`. |
 | `enabled` | boolean | Master switch. `false` disables all ore overrides and restores vanilla generation. |
-| `countMultiplier` | double | Global multiplier applied to every variant `count` (`0.0`–`100.0`). |
-| `sizeMultiplier` | double | Global multiplier applied to every variant `size` (`0.0`–`100.0`). |
+| `countMultiplier` | double | Global multiplier applied to every variant `count` (`0.0`–`100.0`; larger values are clamped). |
+| `sizeMultiplier` | double | Global multiplier applied to every variant `size` (`0.0`–`100.0`; larger values are clamped). Effective sizes are capped at 80. |
 | `ores` | object | Map of ore group key → group. |
 
 ### Ore groups and variants
@@ -183,7 +185,7 @@ entries with vanilla-derived defaults, while values you already changed are pres
 |---|---|---|---|
 | `enabled` | boolean | `true`/`false` | `false` suppresses the variant completely (implemented as count `0`). |
 | `count` | int | `-1` … `100000` | Veins per chunk (placement attempts). `-1` means "do not touch the vanilla count modifier". |
-| `size` | int | `1` … `256` | Vein size passed to the ore feature. |
+| `size` | int | `1` … `80` | Vein size passed to the ore feature. Values above **80** are clamped; see [Vein size limit](#vein-size-limit). |
 | `minY` | int | `-2048` … `2048` | Lowest Y for placement (absolute block coordinate). |
 | `maxY` | int | `-2048` … `2048` | Highest Y for placement (absolute block coordinate). |
 | `distribution` | string | `uniform`, `triangle`, `trapezoid` | Height distribution inside `minY..maxY`. |
@@ -199,6 +201,20 @@ Distributions:
 
 Values are validated on load: numbers are clamped to their ranges, `minY`/`maxY` are swapped if
 reversed, and an unknown distribution falls back to `uniform`.
+
+### Vein size limit
+
+Minecraft only allows a feature to write to the current chunk and its immediate neighbors during the
+`features` generation step. A vanilla ore feature's placement box grows with `size`; at size **81**
+it can reach 17 blocks from its origin, which is outside that write radius. Minecraft then logs
+`Detected setBlock in a far chunk` and rejects the affected blocks.
+
+To prevent that error entirely, **80 is the hard upper bound for every effective vein size**. Larger
+values are clamped to 80 whether they come from the JSON file, `/oreconfig set ... size`, or
+`sizeMultiplier`. Commands report the clamp to the player. The limit applies to the final effective
+size, so `size 40` with `sizeMultiplier 10` still becomes 80, not 400.
+
+Counts are not limited by this rule; the maximum count is `100000`.
 
 ### Editing by hand
 
@@ -244,7 +260,8 @@ permissions, and a tutorial with worked examples.
 - **Global off switch.** Set `"enabled": false` in the JSON and run `/oreconfig reload` to disable
   all overrides (vanilla behavior) without deleting your settings.
 - **Multiplier math.** Effective count is `round(count × countMultiplier)` and effective size is
-  `round(size × sizeMultiplier)`, both clamped to valid ranges. When `count` is `-1`, the count
+  `round(size × sizeMultiplier)`, both clamped to valid ranges. Effective size is hard-capped at
+  **80** to stay inside Minecraft's one-chunk feature write radius. When `count` is `-1`, the count
   multiplier does not apply because the vanilla count modifier is left untouched.
 - **Datapack reloads.** If you run `/reload` (or add ore datapacks) while the server is running, the
   placed feature registry is rebuilt. Run `/oreconfig reload` afterwards to rebind the overrides to

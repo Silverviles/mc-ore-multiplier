@@ -140,8 +140,11 @@ public final class ConfigManager {
 
     private void validate() {
         config.configVersion = OreConfig.CURRENT_VERSION;
-        config.countMultiplier = clamp(config.countMultiplier, 0.0D, 100.0D);
-        config.sizeMultiplier = clamp(config.sizeMultiplier, 0.0D, 100.0D);
+        double requestedCountMultiplier = config.countMultiplier;
+        double requestedSizeMultiplier = config.sizeMultiplier;
+        config.countMultiplier = OreLimits.clampMultiplier(config.countMultiplier);
+        config.sizeMultiplier = OreLimits.clampMultiplier(config.sizeMultiplier);
+        int clampedVariants = 0;
 
         for (OreGroup group : config.ores.values()) {
             if (group == null) {
@@ -154,8 +157,13 @@ public final class ConfigManager {
                 if (variant == null) {
                     continue;
                 }
-                variant.count = Math.max(-1, Math.min(100_000, variant.count));
-                variant.size = Math.max(1, Math.min(256, variant.size));
+                int clampedCount = OreLimits.clampCount(variant.count);
+                int clampedSize = OreLimits.clampSize(variant.size);
+                if (clampedCount != variant.count || clampedSize != variant.size) {
+                    clampedVariants++;
+                }
+                variant.count = clampedCount;
+                variant.size = clampedSize;
                 if (variant.minY > variant.maxY) {
                     int swap = variant.minY;
                     variant.minY = variant.maxY;
@@ -172,6 +180,18 @@ public final class ConfigManager {
                 variant.distribution = distribution;
                 variant.plateau = Math.max(0, Math.min(variant.maxY - variant.minY, variant.plateau));
             }
+        }
+
+        if (requestedCountMultiplier != config.countMultiplier
+                || requestedSizeMultiplier != config.sizeMultiplier) {
+            LOGGER.warn("Clamped global ore multipliers to x{}..x{} (count was x{}, size was x{}).",
+                    OreLimits.MIN_MULTIPLIER, OreLimits.MAX_MULTIPLIER,
+                    requestedCountMultiplier, requestedSizeMultiplier);
+        }
+        if (clampedVariants > 0) {
+            LOGGER.warn("Clamped {} ore variant value(s) to the allowed ranges (count {}..{}, size {}..{}).",
+                    clampedVariants, OreLimits.MIN_COUNT, OreLimits.MAX_COUNT,
+                    OreLimits.MIN_SIZE, OreLimits.MAX_SIZE);
         }
     }
 

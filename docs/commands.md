@@ -31,6 +31,7 @@ It starts with the essentials and then walks through common tasks with copy-past
   - [9. Edit the JSON by hand](#9-edit-the-json-by-hand)
   - [10. Full example: a richer world](#10-full-example-a-richer-world)
 - [How values combine](#how-values-combine)
+- [Vein size hard limit](#vein-size-hard-limit)
 - [Troubleshooting](#troubleshooting)
 
 ## Permissions
@@ -114,7 +115,8 @@ Lists all ore groups and their variants, or only one group when `<ore>` is given
 ```
 
 Each line shows the variant suffix, count, size, Y range, distribution, on/off state and clickable
-edit chips:
+edit chips. When a multiplier changes an effective value, it is shown in parentheses, for example
+`count 20 (40)` or `size 33 (80)`.
 
 ```text
 Diamond  (minecraft:diamond)
@@ -149,8 +151,8 @@ Properties:
 
 | Property | Value range | Description |
 |---|---|---|
-| `count` | `-1` … `100000` | Veins per chunk. `-1` restores "no count modifier"; `0` disables generation. |
-| `size` | `1` … `256` | Vein size (blocks). |
+| `count` | `-1` … `100000` | Veins per chunk. `-1` restores "no count modifier"; `0` disables generation. Values outside the range are clamped. |
+| `size` | `1` … `80` | Vein size (blocks). Values above **80** are clamped to the hard limit. |
 | `min-y` | `-2048` … `2048` | Lowest absolute Y. |
 | `max-y` | `-2048` … `2048` | Highest absolute Y. |
 | `distribution` | `uniform`, `triangle`, `trapezoid` | Height distribution inside the Y band. |
@@ -170,6 +172,11 @@ Notes:
 
 - `count` is an **absolute value**, not a multiplier. Use
   [`/oreconfig multiplier count`](#oreconfig-multiplier-countsize-value) to scale everything.
+- **Vein size is hard-capped at 80.** A vanilla ore feature with size 81 can reach outside
+  Minecraft's one-chunk feature write radius and trigger `Detected setBlock in a far chunk`. If you
+  enter a larger size, the command stores 80 and tells you that the value was clamped.
+- Numeric values are clamped to their allowed ranges on every command and when the config is loaded.
+  A command that had to clamp a value includes a message with the limit that was applied.
 - When a variant originally had **no** count modifier (`count none`), setting a count inserts one.
   Use `count -1` to remove it again and return to the vanilla behavior.
 - Changing `distribution` to `triangle` zeroes the trapezoid plateau. To use a real flat-top
@@ -206,8 +213,10 @@ Set the global multiplier applied on top of every variant's own value.
 /oreconfig multiplier size 1
 ```
 
-Range: `0.0` … `100.0`. Values are rounded per variant, and the result is clamped to the valid range.
-A global count multiplier has no effect on variants whose count is `-1` (no count modifier).
+Range: `0.0` … `100.0`. Values above 100 are clamped to 100 and the command reports the clamp.
+Values are rounded per variant, and the result is clamped to the valid range. Effective vein sizes
+are hard-capped at **80**, so a size multiplier cannot push a vein outside Minecraft's chunk write
+radius. A global count multiplier has no effect on variants whose count is `-1` (no count modifier).
 
 ### `/oreconfig reset <ore> [<variant>]`
 
@@ -320,7 +329,8 @@ Vein size controls how many blocks a single vein can place:
 ```
 
 Larger sizes grow vein volume faster than linearly, so raise values in small steps and test in fresh
-chunks.
+chunks. Vein size is hard-capped at **80**; larger values are clamped and reported. See
+[Vein size hard limit](#vein-size-hard-limit).
 
 ### 5. Limit an ore to a height band
 
@@ -469,7 +479,7 @@ For every variant, the mod computes:
 
 ```text
 effective count = round(variant.count × countMultiplier)   (clamped to 0 … 100000)
-effective size  = round(variant.size  × sizeMultiplier)    (clamped to 1 … 256)
+effective size  = round(variant.size  × sizeMultiplier)    (clamped to 1 … 80)
 ```
 
 Exceptions and details:
@@ -481,7 +491,26 @@ Exceptions and details:
   `HeightRangePlacement` for the variant.
 - If a variant has no count modifier and you set a positive count, the mod inserts one. If it already
   has one, the value is replaced.
-- Values are validated and clamped when the config is loaded or a command sets them.
+- Values are validated and clamped when the config is loaded or a command sets them. Commands that
+  clamp an input tell you the limit that was applied.
+
+## Vein size hard limit
+
+Minecraft only allows a feature to write to the current chunk and its immediate neighbors during the
+`features` generation step. A vanilla ore feature with size **81** can reach 17 blocks from its
+origin, which is far enough to touch a chunk outside that radius. Minecraft then logs
+`Detected setBlock in a far chunk` and rejects the affected blocks.
+
+For that reason, the mod hard-caps the **final effective vein size at 80**, which is the largest
+size that always stays inside the write radius:
+
+- `/oreconfig set <ore> <variant> size 200` stores `80` and tells you it was clamped.
+- A JSON value of `"size": 200` is clamped to `80` when the config is loaded or reloaded.
+- `size 40` with `/oreconfig multiplier size 10` is capped to `80`, not `400`.
+- Counts are not affected by this limit; their maximum remains `100000`.
+
+`/oreconfig list` shows the effective size in parentheses when the multiplier changes it, for
+example `size 33 (80)`.
 
 ## Troubleshooting
 
@@ -491,6 +520,8 @@ Exceptions and details:
 | `Ambiguous ore 'x'` | Several groups match the short name. Use the full key, e.g. `mymod:tin`. |
 | `Unknown variant 'x'` | Use `/oreconfig show <ore>` to see the variant suffixes, or use `all`. |
 | Changes do not show up | Only new chunks are affected. Explore ungenerated terrain or create a new world. |
+| `Detected setBlock in a far chunk` | A vein exceeded Minecraft's one-chunk write radius. The mod caps effective size at 80; run `/oreconfig reload` and check that no external/datapack feature uses an oversized size. |
+| A command says the value was clamped | The input exceeded a hard limit. Size is capped at 80, count at 100000, and multipliers at 100. |
 | `Ore configuration is not loaded yet` | The server is still starting. Wait a moment and retry. |
 | Command not permitted | You need OP level 2 (GAMEMASTERS) or the `ore_multiplier:command/config` permission node. |
 | A datapack `/reload` removed the overrides | Run `/oreconfig reload` to rebind overrides to the rebuilt placed feature registry. |
